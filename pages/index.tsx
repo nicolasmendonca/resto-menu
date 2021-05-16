@@ -1,61 +1,86 @@
-import { Button } from '@chakra-ui/button';
-import { Input } from '@chakra-ui/input';
-import { Container, HStack, List, ListItem } from '@chakra-ui/layout';
-import React, { FormEvent } from 'react';
+import React from 'react';
+import {
+	Box,
+	Heading,
+	VisuallyHidden,
+	Image,
+	Text,
+	HStack,
+	Container,
+	Divider,
+	useColorMode,
+} from '@chakra-ui/react';
+import { GetStaticProps } from 'next';
 
-interface ITodoAppProps {}
+import { RestoHeading } from '../components/RestoHeading';
+import { RestoPrimitivesMemoryFetchService } from '../context/RestoDetails/infrastructure/RestoPrimitivesMemoryFetchService';
+import { fetchRestoPrimitives } from '../context/RestoDetails/application/fetchRestoDetails';
+import { Resto, RestoPrimitives } from '../context/RestoDetails/domain/Resto';
 
-const TodoApp: React.FC<ITodoAppProps> = () => {
-	const [inputValue, setInputValue] = React.useState<string>('');
-	const [todos, setTodos] = React.useState<string[]>([]);
-	const handleFormSubmit = (e: FormEvent) => {
-		e.preventDefault();
-		const newTodo = inputValue?.trim() || '';
+interface IndexPageProps {
+	restoPrimitives: RestoPrimitives;
+}
 
-		if (!newTodo || todos.includes(newTodo)) return;
+const IndexPage: React.FC<IndexPageProps> = ({ restoPrimitives }) => {
+	const { colorMode } = useColorMode();
+	const restoDetails = React.useMemo<Resto>(() => {
+		if (!restoPrimitives) return null;
 
-		setTodos([...todos, newTodo]);
-		setInputValue('');
-	};
-
-	const handleRemoveTodo = (todoIndexToRemove) => {
-		setTodos(todos.filter((_, idx) => todoIndexToRemove !== idx));
-	};
+		return Resto.fromPrimitives(restoPrimitives);
+	}, [restoPrimitives]);
 
 	return (
-		<Container className="TodoApp" py={4}>
-			<HStack as="form" onSubmit={handleFormSubmit}>
-				<Input
-					autoFocus={true}
-					name="todo"
-					placeholder="Add a new task!"
-					type="text"
-					value={inputValue}
-					onChange={(e) => setInputValue(e.target.value)}
-				/>
-				<Button colorScheme="purple" type="submit">
-					Save
-				</Button>
-			</HStack>
-
-			<List my={4}>
-				{todos.map((todo, todoIndex) => (
-					<ListItem key={todo} listStyleType="disc">
-						{todo}
-						<span> </span>
-						<Button
-							colorScheme="red"
-							size="xs"
-							variant="ghost"
-							onClick={() => handleRemoveTodo(todoIndex)}
-						>
-							X
-						</Button>
-					</ListItem>
-				))}
-			</List>
-		</Container>
+		<Box>
+			<RestoHeading />
+			<Container aria-label="Productos" as="section" py={4}>
+				<VisuallyHidden as="h2">Productos</VisuallyHidden>
+				{restoDetails?.productList.categories.map((category) => {
+					return (
+						<React.Fragment key={category.id}>
+							<Heading
+								as="h3"
+								color={colorMode === 'light' ? 'gray.700' : 'gray.300'}
+								py={4}
+								size="lg"
+							>
+								{category.name}
+							</Heading>
+							{category.products.map((product) => {
+								return (
+									<HStack key={product.id} gap={4} p={2}>
+										<Box height="full">
+											<Text fontWeight="bold">{product.name}</Text>
+											{product.description && (
+												<Text color="gray" fontWeight="light">
+													{product.description}
+												</Text>
+											)}
+										</Box>
+										{product.imageUrl && (
+											<Box>
+												<Image alt={product.name} src={product.imageUrl} width={120} />
+											</Box>
+										)}
+									</HStack>
+								);
+							})}
+						</React.Fragment>
+					);
+				})}
+			</Container>
+			<Divider />
+		</Box>
 	);
 };
 
-export default TodoApp;
+export const getStaticProps: GetStaticProps = async () => {
+	const restoPrimitives = await fetchRestoPrimitives(RestoPrimitivesMemoryFetchService, '1');
+
+	return {
+		props: {
+			restoPrimitives,
+		},
+	};
+};
+
+export default IndexPage;

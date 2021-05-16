@@ -1,0 +1,1 @@
+export type RestoId = string;
