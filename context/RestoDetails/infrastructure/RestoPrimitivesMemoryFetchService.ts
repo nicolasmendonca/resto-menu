@@ -4,7 +4,12 @@ import { RestoId } from '../domain/RestoId';
 
 const data: Record<string, RestoPrimitives> = {
 	'1': {
+		category: {
+			id: '1',
+			name: 'Hamburguesas',
+		},
 		id: '1',
+		imageUrl: '/custom/mcdonalds/heading.jpeg',
 		name: 'McDonalds',
 		productList: {
 			categories: [
@@ -30,7 +35,7 @@ const data: Record<string, RestoPrimitives> = {
 				},
 			],
 		},
-	} as RestoPrimitives,
+	},
 };
 
 export const RestoPrimitivesMemoryFetchService: RestoPrimitivesFetchService = (
