@@ -1,17 +1,31 @@
-import React, { Reducer } from 'react';
-import produce, { immerable } from 'immer';
+import React from 'react';
 import {
 	Box,
-	Heading,
-	VisuallyHidden,
-	Image,
-	Text,
-	HStack,
+	Button,
+	Center,
+	chakra,
 	Container,
 	Divider,
+	Drawer,
+	DrawerBody,
+	DrawerCloseButton,
+	DrawerContent,
+	DrawerFooter,
+	DrawerHeader,
+	DrawerOverlay,
+	Heading,
+	HStack,
+	Image,
+	Modal,
+	ModalBody,
+	ModalCloseButton,
+	ModalContent,
+	ModalHeader,
+	ModalOverlay,
+	Text,
 	useColorMode,
+	VisuallyHidden,
 	VStack,
-	chakra,
 } from '@chakra-ui/react';
 import { GetStaticProps } from 'next';
 
@@ -19,12 +33,24 @@ import { RestoPrimitivesMemoryFetchService } from '../context/RestoDetails/infra
 import { fetchRestoPrimitives } from '../context/RestoDetails/application/fetchRestoDetails';
 import { Resto, RestoPrimitives } from '../context/RestoDetails/domain/Resto';
 import { Product } from '../context/RestoDetails/domain/Product';
+import { Cart } from '../context/RestoDetails/application/Cart';
+import { cartReducer } from '../context/RestoDetails/application/cartReducer';
+import { AddProductCard } from '../components/AddProductCard';
+import { CartSummary } from '../components/CartSummary/CartSummary';
+import { ProductCount } from '../components/shared/ProductCount';
+import { SubmitCartOrderButton } from '../components/SubmitCartOrderButton/SubmitCartOrderButton';
 
 interface IndexPageProps {
 	restoPrimitives: RestoPrimitives;
 }
 
 const IndexPage: React.FC<IndexPageProps> = ({ restoPrimitives }) => {
+	// Stores the product state that the user is trying to add to the cart
+	const [activeProductAdd, setActiveProductAdd] = React.useState<Product | undefined>(undefined);
+
+	// The drawer contains the CartSummary
+	const [isCartDrawerOpen, setIsCartDrawerOpen] = React.useState<boolean>(false);
+	const isAddProductCardModalOpen = activeProductAdd !== undefined;
 	const [cart, dispatch] = React.useReducer(cartReducer, new Cart([]));
 	const { colorMode } = useColorMode();
 	const restoDetails = React.useMemo<Resto>(() => {
@@ -33,30 +59,54 @@ const IndexPage: React.FC<IndexPageProps> = ({ restoPrimitives }) => {
 		return Resto.fromPrimitives(restoPrimitives);
 	}, [restoPrimitives]);
 
-	const addProductToCart = (product: Product) =>
+	const setProductQuantity = (product: Product, quantity: number) => {
 		dispatch({
-			payload: product,
-			type: 'ADD_PRODUCT',
+			payload: { product, quantity },
+			type: 'SET_PRODUCT_QUANTITY',
 		});
+	};
+
+	const handleAddProductModalDismissed = () => {
+		setActiveProductAdd(undefined);
+	};
+
+	const handleProductQuantitySaved = (quantity: number) => {
+		setProductQuantity(activeProductAdd, quantity);
+		setActiveProductAdd(undefined);
+	};
+
+	const handleGoToCartClicked = () => {
+		setIsCartDrawerOpen(true);
+	};
+
+	const handleCartDrawerClosed = () => {
+		setIsCartDrawerOpen(false);
+	};
+
+	const handleProductQuantityEditClicked = (product: Product) => {
+		setActiveProductAdd(product);
+	};
 
 	return (
-		<Box>
+		<Box pb={16} position="relative">
 			<Box borderRadius="md" boxShadow="sm">
-				<Image objectFit="contain" src={restoDetails.imageUrl} />
-				<Container py={4}>
-					<Heading as="h1">{restoDetails.name}</Heading>
-					<HStack>
-						<Text color="gray" flex={1} size="sm">
-							{restoDetails.categoryName}
-						</Text>
-					</HStack>
-				</Container>
+				<Image objectFit="contain" src={restoDetails.imageUrl} width="full" />
+				<Box p={4}>
+					<Container maxW="container.lg">
+						<Heading as="h1">{restoDetails.name}</Heading>
+						<HStack>
+							<Text color="gray" flex={1} size="sm">
+								{restoDetails.categoryName}
+							</Text>
+						</HStack>
+					</Container>
+				</Box>
 			</Box>
 			<Box aria-label="Productos" as="section" px={2} py={4}>
 				<VisuallyHidden as="h2">Productos</VisuallyHidden>
 				{restoDetails?.productList.categories.map((category) => {
 					return (
-						<React.Fragment key={category.id}>
+						<Container key={category.id} maxW="container.lg">
 							<Heading
 								as="h3"
 								color={colorMode === 'light' ? 'gray.700' : 'gray.300'}
@@ -67,31 +117,23 @@ const IndexPage: React.FC<IndexPageProps> = ({ restoPrimitives }) => {
 								{category.name}
 							</Heading>
 							{category.products.map((product) => {
+								const productInCartCount = cart.countProduct(product);
+								const isProductInCart = productInCartCount > 0;
+
 								return (
 									<ProductButton
 										key={product.id}
 										style={{ textAlign: 'left' }}
-										onClick={() => addProductToCart(product)}
+										width="full"
+										onClick={() => setActiveProductAdd(product)}
 									>
-										<HStack gap={6} py={2}>
+										<HStack gap={6} py={2} width="full">
 											<VStack alignSelf="flex-start">
-												<Box
-													as="span"
-													bgColor="green.500"
-													borderRadius="50%"
-													color="white"
-													display="inline-block"
-													fontSize="14px"
-													height="24px"
-													lineHeight="24px"
-													opacity={cart.hasProduct(product) ? 1 : 0}
-													textAlign="center"
-													width="24px"
-												>
-													{cart.countProduct(product)}
+												<Box opacity={isProductInCart ? 1 : 0} width="24px">
+													<ProductCount>{productInCartCount}</ProductCount>
 												</Box>
 											</VStack>
-											<Box height="full">
+											<Box alignSelf="flex-start" flex="1">
 												<Text fontWeight="bold">{product.name}</Text>
 												{product.description && (
 													<Text color="gray" fontWeight="light">
@@ -108,50 +150,63 @@ const IndexPage: React.FC<IndexPageProps> = ({ restoPrimitives }) => {
 									</ProductButton>
 								);
 							})}
-						</React.Fragment>
+						</Container>
 					);
 				})}
 			</Box>
 			<Divider />
+			{cart.cartProductsCount > 0 && (
+				<Center width="100vw">
+					<Button
+						bgColor="orange.400"
+						bottom={12}
+						color="white"
+						position="fixed"
+						px={6}
+						size="lg"
+						onClick={handleGoToCartClicked}
+					>
+						Ir al carrito
+					</Button>
+				</Center>
+			)}
+			<Modal isOpen={isAddProductCardModalOpen} onClose={handleAddProductModalDismissed}>
+				<ModalOverlay />
+				<ModalContent>
+					<ModalHeader>{activeProductAdd?.name}</ModalHeader>
+					<ModalCloseButton />
+					<ModalBody>
+						{activeProductAdd && (
+							<AddProductCard
+								key={activeProductAdd.id}
+								initialQuantityValue={cart.countProduct(activeProductAdd)}
+								product={activeProductAdd}
+								onDismiss={handleAddProductModalDismissed}
+								onProductQuantitySaved={handleProductQuantitySaved}
+							/>
+						)}
+					</ModalBody>
+				</ModalContent>
+			</Modal>
+			<Drawer isOpen={isCartDrawerOpen} placement="right" onClose={handleCartDrawerClosed}>
+				<DrawerOverlay />
+				<DrawerContent>
+					<DrawerCloseButton />
+					<DrawerHeader>Mi Carrito</DrawerHeader>
+					<DrawerBody>
+						<CartSummary
+							cart={cart}
+							onProductQuantityEditButtonClicked={handleProductQuantityEditClicked}
+						/>
+					</DrawerBody>
+					<DrawerFooter>
+						<SubmitCartOrderButton cart={cart} />
+					</DrawerFooter>
+				</DrawerContent>
+			</Drawer>
 		</Box>
 	);
 };
-
-class Cart {
-	[immerable] = true;
-
-	constructor(public products: Product[]) {}
-
-	addProduct(product: Product) {
-		this.products.push(product);
-	}
-
-	hasProduct(product: Product) {
-		return this.products.findIndex((productInCart) => productInCart.id === product.id) > -1;
-	}
-
-	countProduct(product: Product) {
-		return this.products.filter((productInCart) => productInCart.id === product.id).length;
-	}
-}
-
-interface AddProductAction {
-	type: 'ADD_PRODUCT';
-	payload: Product;
-}
-
-type CartReducerActions = AddProductAction;
-
-const cartReducer: Reducer<Cart, CartReducerActions> = produce((state, action) => {
-	switch (action.type) {
-		case 'ADD_PRODUCT':
-			state.addProduct(action.payload);
-
-			return state;
-		default:
-			return state;
-	}
-});
 
 const ProductButton = chakra('button', {});
 
